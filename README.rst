@@ -32,46 +32,49 @@ Usage
 Interaction with AWS is via pyapp.aiobotocore_ extension, configuration of your
 AWS credentials is required.
 
-This package provides the following connection interfaces:
-
-- ``pyapp_ext.messaging_aws.aio.SQSSender``::
-
-    SEND_MESSAGE_QUEUES = {
-        "aws": (
-            "pyapp_ext.messaging_aws.aio.SQSSender",
-            {"queue_name": "my-queue"},
-        )
-    }
-
-- ``pyapp_ext.messaging_aws.aio.SQSReceiver``::
-
-    RECEIVE_MESSAGE_QUEUES = {
-        "aws": (
-            "pyapp_ext.messaging_aws.aio.SQSSender",
-            {"queue_name": "my-queue"},
-        )
-    }
-
-- ``pyapp_ext.messaging_aws.aio.SNSSender``
-
-
-The following example obtains an S3 client::
-
-    from pyapp_ext.aiobotocore import create_client
-
-    s3 = create_client("S3")
-
-
 .. _pyapp.aiobotocore: https://github.com/pyapp-org/pyapp.aiobotocore
 
-API
-===
+This package provides the following connection interfaces:
 
-`pyapp_ext.aiobotocore.create_client(service_name: str, *, credentials: str = None, **client_kwargs)`
+- ``pyapp_ext.messaging_aws.aio.SQSSender``
+    .. code-block:: python
 
-    Get an async botocore service client instance.
+        SEND_MESSAGE_QUEUES = {
+            "sqs": (
+                "pyapp_ext.messaging_aws.aio.SQSSender",
+                {"queue_name": "my-queue"},
+            )
+        }
 
+- ``pyapp_ext.messaging_aws.aio.SQSReceiver``
+    .. code-block:: python
 
-`pyapp_ext.aiobotocore.get_session(default: str = None) -> Session`
+        RECEIVE_MESSAGE_QUEUES = {
+            "sqs": (
+                "pyapp_ext.messaging_aws.aio.SQSReceiver",
+                {"queue_name": "my-queue"},
+            )
+        }
 
-    Get named `Session` instance.
+- ``pyapp_ext.messaging_aws.aio.SNSSender``
+    .. code-block:: python
+
+        SEND_MESSAGE_QUEUES = {
+            "sns": (
+                "pyapp_ext.messaging_aws.aio.SNSSender",
+                # Topic name can also be an ARN
+                {"topic_name": "my-topic"},
+            )
+        }
+
+- ``pyapp_ext.messaging_aws.aio.SNSSender``
+    Creates a SQS queue that is subscribed to the SNS topic to receive messages.
+
+    .. code-block:: python
+
+        RECEIVE_MESSAGE_QUEUES = {
+            "sns": (
+                "pyapp_ext.messaging_aws.aio.SNSReceiver",
+                {"topic_name": "my-topic"},
+            )
+        }
