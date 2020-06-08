@@ -1,0 +1,3 @@
+"""
+Sample AWS Messaging Application
+"""
