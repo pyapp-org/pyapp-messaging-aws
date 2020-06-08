@@ -10,6 +10,7 @@ import botocore.exceptions
 from pyapp_ext.aiobotocore import aio_create_client
 from pyapp_ext.messaging.aio import MessageSender, MessageReceiver, Message
 from pyapp_ext.messaging.exceptions import QueueNotFound
+
 from .utils import parse_attributes, build_attributes
 
 LOGGER = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class SQSBase:
             else:
                 raise
 
-        except botocore.exceptions.BotoCoreError as _err:
+        except Exception:
             await client.close()
             raise
 
@@ -80,11 +81,12 @@ class SQSBase:
             response = await client.create_queue(QueueName=self.queue_name)
         except botocore.exceptions.ClientError as err:
             error_code = err.response["Error"]["Code"]
+            LOGGER.error(error_code)
             raise
-        else:
-            return response["QueueUrl"]
         finally:
             await client.close()
+
+        return response["QueueUrl"]
 
 
 class SQSSender(SQSBase, MessageSender):
@@ -99,7 +101,7 @@ class SQSSender(SQSBase, MessageSender):
         Publish a raw message (message is raw bytes)
         """
         attributes = build_attributes(
-            ContentType=content_type, ContentEncoding=content_type
+            ContentType=content_type, ContentEncoding=content_encoding
         )
         response = await self._client.send_message(
             QueueUrl=self._queue_url, MessageBody=body, MessageAttributes=attributes
@@ -120,7 +122,7 @@ class SQSReceiver(SQSBase, MessageReceiver):
             ReceiptHandle=message.raw["ReceiptHandle"]
         )
 
-    async def receive_raw(self) -> AsyncGenerator[str, bool]:
+    async def receive_raw(self) -> AsyncGenerator[str, None]:
         queue_name = self.queue_name
         client = self._client
         queue_url = self._queue_url
@@ -138,11 +140,11 @@ class SQSReceiver(SQSBase, MessageReceiver):
                 if "Messages" in response:
                     for msg in response["Messages"]:
                         try:
-                            raw_attrs = msg.pop("MessageAttributes")
+                            attrs = parse_attributes(
+                                msg.pop("MessageAttributes")
+                            )
                         except KeyError:
                             attrs = {}
-                        else:
-                            attrs = parse_attributes(raw_attrs)
 
                         yield Message(
                             msg.pop("Body"),
