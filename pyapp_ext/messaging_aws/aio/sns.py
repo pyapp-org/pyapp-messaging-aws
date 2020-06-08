@@ -83,9 +83,10 @@ class SNSReceiver(SQSReceiver, MessageReceiver):
 
     __slots__ = ("topic_name",)
 
-    def __init__(self, *, topic_name: str, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *, topic_name: str, queue_name: str = None, **kwargs):
         self.topic_name = topic_name
+
+        super().__init__(queue_name=queue_name or topic_name, **kwargs)
 
     async def _get_topic_arn(self, client):
         if self.topic_name.startswith("arn:"):

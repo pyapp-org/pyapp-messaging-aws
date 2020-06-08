@@ -37,7 +37,6 @@ RECEIVE_MESSAGE_QUEUES = {
     "sns": (
         "pyapp_ext.messaging_aws.aio.SNSReceiver",
         {
-            "queue_name": "topic1",
             "topic_name": "topic1",
             "client_args": {"endpoint_url": "http://localhost:4566/"},
         },
