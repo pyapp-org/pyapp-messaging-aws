@@ -1,0 +1,14 @@
+version: "3.3"
+
+services:
+  localstack:
+    image: localstack/localstack-light
+    ports:
+      - 4566-4599:4566-4599
+    environment:
+      - SERVICES=sqs,sns
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - HOST_TMP_FOLDER=${TMPDIR}
+    volumes:
+      - "${TMPDIR:-/tmp/localstack}:/tmp/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
