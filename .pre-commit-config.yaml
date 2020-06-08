@@ -1,6 +1,26 @@
 repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    sha: v1.1.1
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-case-conflict
+    -   id: check-merge-conflict
+    -   id: debug-statements
+        language_version: python3.6
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+
 -   repo: https://github.com/ambv/black
     rev: stable
     hooks:
     - id: black
       language_version: python3.6
+
+-   repo: local
+    hooks:
+    -   id: prospector
+        name: Prospector
+        description: 'This hook runs Prospector: https://github.com/landscapeio/prospector'
+        entry: prospector
+        language: system
+        files: \.py$
