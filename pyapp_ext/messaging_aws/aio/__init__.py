@@ -1,7 +1,15 @@
-from .sqs import SQSSender, SQSReceiver
-from .sns import SNSSender
+"""
+pyApp AsyncIO Messaging - AWS
+~~~~~~~~~~~~~~~~~~~~~
 
-__all__ = ("SQSSender", "SQSReceiver", "SNSSender")
+Messaging integration with AWS SQS and SNS.
+
+"""
+
+from .sqs import SQSSender, SQSReceiver
+from .sns import SNSSender, SNSReceiver
+
+__all__ = ("SQSSender", "SQSReceiver", "SNSSender", "SNSReceiver")
 
 
 class Extension:

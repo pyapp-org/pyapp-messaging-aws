@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, Optional, AsyncGenerator
 
 import botocore.exceptions
-from pyapp_ext.aiobotocore import aio_create_client
+from pyapp_ext.aiobotocore import aio_create_client, create_client
 from pyapp_ext.messaging.aio import MessageSender, MessageReceiver, Message
 from pyapp_ext.messaging.exceptions import QueueNotFound
 
@@ -75,18 +75,15 @@ class SQSBase:
         """
         Define any send queues
         """
-        client = await aio_create_client("sqs", self.aws_config, **self.client_args)
+        async with create_client("sqs", self.aws_config, **self.client_args) as client:
+            try:
+                response = await client.create_queue(QueueName=self.queue_name)
+            except botocore.exceptions.ClientError as err:
+                error_code = err.response["Error"]["Code"]
+                LOGGER.error(error_code)
+                raise
 
-        try:
-            response = await client.create_queue(QueueName=self.queue_name)
-        except botocore.exceptions.ClientError as err:
-            error_code = err.response["Error"]["Code"]
-            LOGGER.error(error_code)
-            raise
-        finally:
-            await client.close()
-
-        return response["QueueUrl"]
+            return response["QueueUrl"]
 
 
 class SQSSender(SQSBase, MessageSender):
@@ -115,12 +112,6 @@ class SQSReceiver(SQSBase, MessageReceiver):
     """
 
     __slots__ = ()
-
-    async def delete(self, message: Message):
-        await self._client.delete_message(
-            QueueUrl=self._queue_url,
-            ReceiptHandle=message.raw["ReceiptHandle"]
-        )
 
     async def receive_raw(self) -> AsyncGenerator[str, None]:
         queue_name = self.queue_name
@@ -159,3 +150,9 @@ class SQSReceiver(SQSBase, MessageReceiver):
 
             except botocore.exceptions.ClientError:
                 raise
+
+    async def delete(self, message: Message):
+        await self._client.delete_message(
+            QueueUrl=self._queue_url,
+            ReceiptHandle=message.raw["ReceiptHandle"]
+        )
