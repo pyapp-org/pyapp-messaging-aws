@@ -1,6 +1,7 @@
 from .sqs import SQSSender, SQSReceiver
+from .sns import SNSSender
 
-__all__ = ("SQSSender", "SQSReceiver")
+__all__ = ("SQSSender", "SQSReceiver", "SNSSender")
 
 
 class Extension:

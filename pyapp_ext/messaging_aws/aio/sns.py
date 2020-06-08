@@ -1,10 +1,13 @@
+"""
+AWS SNS Interfaces
+~~~~~~~~~~~~~~~~~~
+
+"""
 import logging
 from typing import Dict, Any
 
-import botocore.exceptions
 from pyapp_ext.aiobotocore import aio_create_client
 from pyapp_ext.messaging.aio import MessageSender
-from pyapp_ext.messaging.exceptions import QueueNotFound
 from .utils import build_attributes
 
 
