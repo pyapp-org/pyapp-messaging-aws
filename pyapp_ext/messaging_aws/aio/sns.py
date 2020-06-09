@@ -4,14 +4,13 @@ AWS SNS Interfaces
 
 """
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, AsyncGenerator
 
 from pyapp_ext.aiobotocore import aio_create_client, create_client
-from pyapp_ext.messaging.aio import MessageSender, MessageReceiver
+from pyapp_ext.messaging.aio import MessageSender, MessageReceiver, Message
 from .error_handlers import botocore_errors
 from .sqs import SQSReceiver
-from .utils import build_attributes
-
+from .utils import build_attributes, parse_attributes
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +31,9 @@ class SNSSender(MessageSender):
 
         self._client = None
         self._topic_arn = None
+
+    def __repr__(self):
+        return f"{type(self).__name__}(topic_name={self.topic_name!r})"
 
     async def open(self):
         """
@@ -88,12 +90,37 @@ class SNSReceiver(SQSReceiver, MessageReceiver):
 
         super().__init__(queue_name=queue_name or topic_name, **kwargs)
 
+    def __repr__(self):
+        return f"{type(self).__name__}(topic_name={self.topic_name!r}, queue_name={self.queue_name!r})"
+
     async def _get_topic_arn(self, client):
         if self.topic_name.startswith("arn:"):
             return self.topic_name
         else:
             response = await client.create_topic(Name=self.topic_name)
             return response["TopicArn"]
+
+    async def receive_raw(self) -> AsyncGenerator[Message, None]:
+        async for message in super().receive_raw():
+            # Unwrap envelope
+            envelope = message.content
+            try:
+                attrs = parse_attributes(
+                    envelope.pop("MessageAttributes")
+                )
+            except KeyError:
+                attrs = {}
+
+            yield Message(
+                envelope.pop("Message"),
+                attrs.get("ContentType"),
+                attrs.get("ContentEncoding"),
+                message,
+                self
+            )
+
+    async def delete(self, message: Message):
+        await super().delete(message.raw)
 
     @botocore_errors
     async def configure(self):

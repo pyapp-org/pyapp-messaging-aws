@@ -37,6 +37,9 @@ class SQSBase:
         self._client = None
         self._queue_url: Optional[str] = None
 
+    def __repr__(self):
+        return f"{type(self).__name__}(queue_name={self.queue_name!r})"
+
     async def open(self):
         """
         Open queue
@@ -113,7 +116,7 @@ class SQSReceiver(SQSBase, MessageReceiver):
 
     __slots__ = ()
 
-    async def receive_raw(self) -> AsyncGenerator[str, None]:
+    async def receive_raw(self) -> AsyncGenerator[Message, None]:
         queue_name = self.queue_name
         client = self._client
         queue_url = self._queue_url
