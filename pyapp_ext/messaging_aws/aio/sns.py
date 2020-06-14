@@ -6,9 +6,11 @@ AWS SNS Interfaces
 import logging
 from typing import Dict, Any, AsyncGenerator
 
+import botocore.exceptions
 from pyapp_ext.aiobotocore import aio_create_client, create_client
 from pyapp_ext.messaging.aio import MessageSender, MessageReceiver, Message
-from .error_handlers import botocore_errors
+from pyapp_ext.messaging.exceptions import ClientError
+
 from .sqs import SQSReceiver
 from .utils import build_attributes, parse_attributes
 
@@ -48,6 +50,12 @@ class SNSSender(MessageSender):
             # Use create topic to get the Topic ARN
             try:
                 response = await client.create_topic(Name=self.topic_name)
+
+            except botocore.exceptions.ClientError as ex:
+                await client.close()
+                error_code = ex.response["Error"]["Code"]
+                raise ClientError(error_code) from ex
+
             except Exception:
                 await client.close()
                 raise
@@ -122,7 +130,6 @@ class SNSReceiver(SQSReceiver, MessageReceiver):
     async def delete(self, message: Message):
         await super().delete(message.raw)
 
-    @botocore_errors
     async def configure(self):
         """
         Define any send queue and subscribe to SNS topic

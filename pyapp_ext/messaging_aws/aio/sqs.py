@@ -7,9 +7,9 @@ import logging
 from typing import Dict, Any, Optional, AsyncGenerator
 
 import botocore.exceptions
-from pyapp_ext.aiobotocore import aio_create_client, create_client
+from pyapp_ext.aiobotocore import aio_create_client
 from pyapp_ext.messaging.aio import MessageSender, MessageReceiver, Message
-from pyapp_ext.messaging.exceptions import QueueNotFound
+from pyapp_ext.messaging.exceptions import QueueNotFound, ClientError
 
 from .utils import parse_attributes, build_attributes
 
@@ -49,17 +49,18 @@ class SQSBase:
         try:
             response = await client.get_queue_url(QueueName=self.queue_name)
 
-        except botocore.exceptions.ClientError as err:
+        except botocore.exceptions.ClientError as ex:
             await client.close()
-            error_code = err.response["Error"]["Code"]
+
+            error_code = ex.response["Error"]["Code"]
             if error_code == "AWS.SimpleQueueService.NonExistentQueue":
                 raise QueueNotFound(f"Unable to find queue `{self.queue_name}`")
-            else:
-                raise
 
-        except Exception:
+            raise ClientError(error_code) from ex
+
+        except Exception as ex:
             await client.close()
-            raise
+            raise ClientError() from ex
 
         self._client = client
         self._queue_url = response["QueueUrl"]
@@ -78,13 +79,16 @@ class SQSBase:
         """
         Define any send queues
         """
-        async with create_client("sqs", self.aws_config, **self.client_args) as client:
+        async with await aio_create_client("sqs", self.aws_config, **self.client_args) as client:
             try:
                 response = await client.create_queue(QueueName=self.queue_name)
-            except botocore.exceptions.ClientError as err:
-                error_code = err.response["Error"]["Code"]
-                LOGGER.error(error_code)
-                raise
+
+            except botocore.exceptions.ClientError as ex:
+                error_code = ex.response["Error"]["Code"]
+                raise ClientError(error_code) from ex
+
+            except Exception as ex:
+                raise ClientError() from ex
 
             return response["QueueUrl"]
 
@@ -114,9 +118,16 @@ class SQSReceiver(SQSBase, MessageReceiver):
     Message receiving for SQS
     """
 
-    __slots__ = ()
+    __slots__ = ("wait_time",)
+
+    def __init__(self, *, wait_time: int = 10, **kwargs):
+        super().__init__(**kwargs)
+        self.wait_time = wait_time
 
     async def receive_raw(self) -> AsyncGenerator[Message, None]:
+        """
+        Start receiving raw responses from the queue
+        """
         queue_name = self.queue_name
         client = self._client
         queue_url = self._queue_url
@@ -124,37 +135,36 @@ class SQSReceiver(SQSBase, MessageReceiver):
         LOGGER.debug("Starting SQS Listener: %s", queue_name)
 
         while True:
-            try:
-                response = await client.receive_message(
-                    QueueUrl=queue_url,
-                    WaitTimeSeconds=10,
-                    MessageAttributeNames=["ContentType", "ContentEncoding"],
-                )
+            response = await client.receive_message(
+                QueueUrl=queue_url,
+                WaitTimeSeconds=self.wait_time,
+                MessageAttributeNames=["ContentType", "ContentEncoding"],
+            )
 
-                if "Messages" in response:
-                    for msg in response["Messages"]:
-                        try:
-                            attrs = parse_attributes(
-                                msg.pop("MessageAttributes")
-                            )
-                        except KeyError:
-                            attrs = {}
-
-                        yield Message(
-                            msg.pop("Body"),
-                            attrs.get("ContentType"),
-                            attrs.get("ContentEncoding"),
-                            msg,
-                            self
+            if "Messages" in response:
+                for msg in response["Messages"]:
+                    try:
+                        attrs = parse_attributes(
+                            msg.pop("MessageAttributes")
                         )
+                    except KeyError:
+                        attrs = {}
 
-                else:
-                    LOGGER.debug("No messages in queue %s", queue_name)
+                    yield Message(
+                        msg.pop("Body"),
+                        attrs.get("ContentType"),
+                        attrs.get("ContentEncoding"),
+                        msg,
+                        self
+                    )
 
-            except botocore.exceptions.ClientError:
-                raise
+            else:
+                LOGGER.debug("No messages in queue %s", queue_name)
 
     async def delete(self, message: Message):
+        """
+        Delete a message from the queue (eg after successfully processing)
+        """
         await self._client.delete_message(
             QueueUrl=self._queue_url,
             ReceiptHandle=message.raw["ReceiptHandle"]
