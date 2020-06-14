@@ -1,0 +1,47 @@
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
+[tool.poetry]
+name = "pyApp-Messaging-AWS"
+version = "0.2.0b1"
+description = "pyApp Messaging Extension for AWS"
+authors = ["Tim Savage <tim@savage.company>"]
+license = "BSD-3-Clause"
+packages = [
+    { include = "pyapp_ext" },
+    { include = "tests", format = "sdist" },
+]
+readme = "README.rst"
+repository = "https://github.com/pyapp-org/pyapp-messaging-aws"
+keywords = ["framework", "aws", "application", "queuing"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+pyapp = "^4.3.0"
+pyapp-messaging = "^0.2"
+pyapp-aiobotocore = "^2.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.4.3"
+pytest-asyncio = "^0.12.0"
+pytest-cov = "^2.10.0"
+
+[tool.poetry.plugins."pyapp.extensions"]
+"pyapp-messaging-aws.aio" = "pyapp_ext.messaging_aws.aio:Extension"
+
+[tool.pytest]
+addopts = "--cov=pyapp_ext.messaging_aws"
