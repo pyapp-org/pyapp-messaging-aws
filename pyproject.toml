@@ -3,8 +3,8 @@ requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
-name = "pyApp-Messaging-AWS"
-version = "0.2.0b1"
+name = "pyapp-messaging-aws"
+version = "1.0a1"
 description = "pyApp Messaging Extension for AWS"
 authors = ["Tim Savage <tim@savage.company>"]
 license = "BSD-3-Clause"
@@ -32,8 +32,8 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.6"
 pyapp = "^4.3.0"
-pyapp-messaging = "^0.2"
-pyapp-aiobotocore = "^2.0"
+pyapp-messaging = "^1.0a1"
+pyapp-aiobotocore = "^2.0b1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.4.3"
