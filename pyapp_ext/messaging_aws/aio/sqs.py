@@ -167,5 +167,5 @@ class SQSReceiver(SQSBase, MessageReceiver):
         """
         await self._client.delete_message(
             QueueUrl=self._queue_url,
-            ReceiptHandle=message.raw["ReceiptHandle"]
+            ReceiptHandle=message.envelope["ReceiptHandle"]
         )

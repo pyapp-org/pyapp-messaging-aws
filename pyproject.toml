@@ -42,6 +42,3 @@ pytest-cov = "^2.10.0"
 
 [tool.poetry.plugins."pyapp.extensions"]
 "pyapp-messaging-aws.aio" = "pyapp_ext.messaging_aws.aio:Extension"
-
-[tool.pytest]
-addopts = "--cov=pyapp_ext.messaging_aws"

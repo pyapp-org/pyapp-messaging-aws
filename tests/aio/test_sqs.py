@@ -1,11 +1,9 @@
-from typing import AsyncGenerator, Sequence
-
-import moto
-import pytest
 from unittest import mock
 
-from botocore.exceptions import ClientError, BotoCoreError
+import pytest
+import botocore.exceptions
 
+from pyapp_ext.messaging.exceptions import ClientError
 from pyapp_ext.messaging_aws.aio import sqs
 
 
@@ -42,7 +40,7 @@ class TestSQSBase:
 
         mock_client = mock.AsyncMock(
             get_queue_url=mock.AsyncMock(
-                side_effect=ClientError({
+                side_effect=botocore.exceptions.ClientError({
                     "Error": {"Code": "AWS.SimpleQueueService.NonExistentQueue"}
                 }, "getQueueUrl")
             )
@@ -69,7 +67,7 @@ class TestSQSBase:
 
         mock_client = mock.AsyncMock(
             get_queue_url=mock.AsyncMock(
-                side_effect=ClientError({
+                side_effect=botocore.exceptions.ClientError({
                     "Error": {"Code": "AWS.SimpleQueueService.AccessDeniedException"}
                 }, "getQueueUrl")
             )
@@ -94,7 +92,7 @@ class TestSQSBase:
 
         mock_client = mock.AsyncMock(
             get_queue_url=mock.AsyncMock(
-                side_effect=BotoCoreError()
+                side_effect=botocore.exceptions.BotoCoreError()
             )
         )
         mock_factory = mock.AsyncMock(return_value=mock_client)
@@ -102,7 +100,7 @@ class TestSQSBase:
 
         target = sqs.SQSBase(queue_name="my_queue", aws_config="my_config")
 
-        with pytest.raises(BotoCoreError):
+        with pytest.raises(ClientError):
             await target.open()
 
         mock_client.close.assert_called()
@@ -141,12 +139,13 @@ class TestSQSBase:
         """
 
         """
-        mock_client = mock.AsyncMock(
+        mock_session = mock.AsyncMock(
             create_queue=mock.AsyncMock(
                 return_value={"QueueUrl": "http://example.com/my_queue"}
             )
         )
-        mock_factory = mock.AsyncMock(return_value=mock_client)
+        mock_session.__aenter__.return_value = mock_session
+        mock_factory = mock.AsyncMock(return_value=mock_session)
         monkeypatch.setattr(sqs, "aio_create_client", mock_factory)
 
         target = sqs.SQSBase(queue_name="my_queue", aws_config="my_config")
@@ -154,23 +153,29 @@ class TestSQSBase:
         actual = await target.configure()
 
         assert actual == "http://example.com/my_queue"
+        mock_session.__aenter__.assert_called()
+        mock_session.__aexit__.assert_called()
 
     @pytest.mark.asyncio
     async def test_configure__client_error(self, monkeypatch):
-        mock_client = mock.AsyncMock(
+        mock_session = mock.AsyncMock(
             create_queue=mock.AsyncMock(
                 side_effect=ClientError({
                     "Error": {"Code": "AWS.SimpleQueueService.QueueDeletedRecently"}
                 }, "getQueueUrl")
-            )
+            ),
         )
-        mock_factory = mock.AsyncMock(return_value=mock_client)
+        mock_session.__aenter__.return_value = mock_session
+        mock_factory = mock.AsyncMock(return_value=mock_session)
         monkeypatch.setattr(sqs, "aio_create_client", mock_factory)
 
         target = sqs.SQSBase(queue_name="my_queue", aws_config="my_config")
 
         with pytest.raises(ClientError):
             await target.configure()
+
+        mock_session.__aenter__.assert_called()
+        mock_session.__aexit__.assert_called()
 
 
 class TestSQSSender:
@@ -201,41 +206,42 @@ class TestSQSSender:
         )
 
 
-async def aread_x(generator: AsyncGenerator, n: int) -> Sequence[sqs.Message]:
-    count = 0
-    items = []
-    async for item in generator:
-        items.append(item)
-        count += 1
-        if count == n:
-            break
-    return items
-
-
 class TestSQSReceiver:
     @pytest.mark.asyncio
     async def test_receive_raw(self):
         target = sqs.SQSReceiver(queue_name="my_queue", aws_config="my_config")
         target._client = client = mock.AsyncMock(
             receive_message=mock.AsyncMock(
-                return_value={
-                    "Messages": [
-                        {"Body": b"SomeData1"},
-                        {
-                            "Body": b"SomeData2",
-                            "MessageAttributes": {
-                                "ContentType": {
-                                    "DataType": "String",
-                                    "StringValue": "application/json"
+                side_effect=[
+                    {
+                        "Messages": []
+                    },
+                    {},
+                    {
+                        "Messages": [
+                            {"Body": b"SomeData1"},
+                            {
+                                "Body": b"SomeData2",
+                                "MessageAttributes": {
+                                    "ContentType": {
+                                        "DataType": "String",
+                                        "StringValue": "application/json"
+                                    }
                                 }
-                            }
-                        },
-                    ]
-                }
+                            },
+                        ]
+                    }
+                ]
             )
         )
 
-        actual1, actual2 = await aread_x(target.receive_raw(), 2)
+        data = []
+        async for message in target.receive_raw():
+            data.append(message)
+            if len(data) == 2:
+                break
+
+        actual1, actual2 = data
 
         assert actual1.body == b"SomeData1"
         assert actual1.queue is target
