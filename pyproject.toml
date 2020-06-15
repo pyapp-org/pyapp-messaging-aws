@@ -4,7 +4,7 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "pyapp-messaging-aws"
-version = "1.0a1"
+version = "1.0b1"
 description = "pyApp Messaging Extension for AWS"
 authors = ["Tim Savage <tim@savage.company>"]
 license = "BSD-3-Clause"
