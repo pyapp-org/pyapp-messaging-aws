@@ -32,7 +32,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.6"
 pyapp = "^4.3.0"
-pyapp-messaging = "^1.0a1"
+pyapp-messaging = "^1.0b1"
 pyapp-aiobotocore = "^2.0b1"
 
 [tool.poetry.dev-dependencies]
