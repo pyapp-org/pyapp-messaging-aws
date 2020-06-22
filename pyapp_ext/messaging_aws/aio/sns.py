@@ -91,11 +91,11 @@ class SNSReceiver(SQSReceiver, MessageReceiver):
     AIO SQS message receiver, subscribed to SNS topic.
     """
 
-    __slots__ = ("topic_name",)
+    __slots__ = ("topic_name", "fallback_to_sqs")
 
-    def __init__(self, *, topic_name: str, queue_name: str = None, **kwargs):
+    def __init__(self, *, topic_name: str, queue_name: str = None, fallback_to_sqs: bool = False, **kwargs):
         self.topic_name = topic_name
-
+        self.fallback_to_sqs = fallback_to_sqs
         super().__init__(queue_name=queue_name or topic_name, **kwargs)
 
     def __repr__(self):
@@ -108,27 +108,48 @@ class SNSReceiver(SQSReceiver, MessageReceiver):
             response = await client.create_topic(Name=self.topic_name)
             return response["TopicArn"]
 
+    async def handle_invalid_message(self, message: Message):
+        """
+        Handle invalid messages
+        """
+        pass
+
     async def receive_raw(self) -> AsyncGenerator[Message, None]:
-        async for message in super().receive_raw():
+        """
+        Receive a raw message
+        """
+        async for sns_message in super().receive_raw():
             # Unwrap envelope
-            envelope = message.content
+            envelope = sns_message.content
+
             try:
-                attrs = parse_attributes(
-                    envelope.pop("MessageAttributes")
-                )
+                message = envelope["Message"]
+
             except KeyError:
-                attrs = {}
+                if self.fallback_to_sqs:
+                    LOGGER.warning("Missing `Message` field, not an SNS message?")
+                    yield sns_message
 
-            yield Message(
-                envelope.pop("Message"),
-                attrs.get("ContentType"),
-                attrs.get("ContentEncoding"),
-                message,
-                self
-            )
+                else:
+                    LOGGER.error("Missing `Message` field, not an SNS message!")
+                    await self.handle_invalid_message(sns_message)
+                    continue
 
-    async def delete(self, message: Message):
-        await super().delete(message.raw)
+            else:
+                try:
+                    attrs = parse_attributes(
+                        envelope["MessageAttributes"]
+                    )
+                except KeyError:
+                    attrs = {}
+
+                yield Message(
+                    message,
+                    attrs.get("ContentType"),
+                    attrs.get("ContentEncoding"),
+                    sns_message.envelope,
+                    self
+                )
 
     async def configure(self):
         """

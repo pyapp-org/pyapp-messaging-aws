@@ -124,6 +124,11 @@ class SQSReceiver(SQSBase, MessageReceiver):
         super().__init__(**kwargs)
         self.wait_time = wait_time
 
+    async def handle_invalid_message(self, message: Message):
+        """
+        Handle an invalid message
+        """
+
     async def receive_raw(self) -> AsyncGenerator[Message, None]:
         """
         Start receiving raw responses from the queue
@@ -145,13 +150,13 @@ class SQSReceiver(SQSBase, MessageReceiver):
                 for msg in response["Messages"]:
                     try:
                         attrs = parse_attributes(
-                            msg.pop("MessageAttributes")
+                            msg["MessageAttributes"]
                         )
                     except KeyError:
                         attrs = {}
 
                     yield Message(
-                        msg.pop("Body"),
+                        msg.get("Body"),
                         attrs.get("ContentType"),
                         attrs.get("ContentEncoding"),
                         msg,
